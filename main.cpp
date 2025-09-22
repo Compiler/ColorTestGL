@@ -1,9 +1,9 @@
 #include <cstdio>
 #include <cstdlib>
+#include <string>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-#include <string>
 
 #ifdef __APPLE__
   #define GL_SILENCE_DEPRECATION
@@ -13,6 +13,9 @@
   #define GLAD_GL_IMPLEMENTATION
   #include <glad/gl.h>
 #endif
+
+#include <OpenColorIO/OpenColorIO.h>
+namespace OCIO = OCIO_NAMESPACE;
 
 static void glfw_error_callback(int code, const char* desc) {
     std::fprintf(stderr, "GLFW error [%d]: %s\n", code, desc ? desc : "");
@@ -71,6 +74,22 @@ static GLuint link(GLuint vs, GLuint fs) {
     return p;
 }
 
+static void ocio_apply(float* verts, int count) {
+    auto config = OCIO::Config::CreateRaw();
+    auto t = OCIO::ExponentTransform::Create();
+    double v[4] = {2.2, 2.2, 2.2, 1.0};
+    t->setValue(v);
+    auto proc = config->getProcessor(t);
+    auto cpu = proc->getDefaultCPUProcessor();
+    for (int i = 0; i < count; ++i) {
+        float rgb[3] = { verts[i*5+2], verts[i*5+3], verts[i*5+4] };
+        cpu->applyRGB(rgb);
+        verts[i*5+2] = rgb[0];
+        verts[i*5+3] = rgb[1];
+        verts[i*5+4] = rgb[2];
+    }
+}
+
 int main() {
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit()) return EXIT_FAILURE;
@@ -86,7 +105,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 #endif
 
-    GLFWwindow* win = glfwCreateWindow(800, 600, "GLFW Triangle", nullptr, nullptr);
+    GLFWwindow* win = glfwCreateWindow(800, 600, "GLFW Triangle + OCIO", nullptr, nullptr);
     if (!win) return EXIT_FAILURE;
     glfwMakeContextCurrent(win);
     glfwSwapInterval(1);
@@ -100,6 +119,8 @@ int main() {
         -0.6f, -0.6f,   0.2f, 0.8f, 1.0f,
          0.6f, -0.6f,   0.3f, 1.0f, 0.2f,
     };
+
+    ocio_apply(verts, 3);
 
     GLuint vao=0, vbo=0;
     glGenVertexArrays(1, &vao);
