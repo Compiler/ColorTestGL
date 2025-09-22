@@ -31,7 +31,7 @@ $(TARGET): main.cpp
 
 .PHONY: run clean
 run: $(TARGET)
-	./$(TARGET)
+	OCIO=./config.ocio ./$(TARGET)
 
 clean:
 	$(RM) $(TARGET)
